@@ -1,0 +1,56 @@
+name: seal-xplat
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  GOFLAGS: -mod=vendor
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      # Test-infra setup so the FULL suite runs with no package filters:
+      # upstream's own signing fixtures (source/git signature tests) and the
+      # CNCF `registry` binary (worker mirror tests). Windows needs neither —
+      # those tests do not run there.
+      - name: Test setup
+        if: runner.os != 'Windows'
+        run: |
+          export BUILDKIT_TEST_SIGN_FIXTURES="$RUNNER_TEMP/sign-fixtures"
+          mkdir -p "$BUILDKIT_TEST_SIGN_FIXTURES"
+          command -v gpg >/dev/null || brew install gnupg
+          sh ./hack/fixtures/gen_gpg_test_env.sh user1
+          sh ./hack/fixtures/gen_gpg_test_env.sh user2
+          sh ./hack/fixtures/gen_ssh_test_env.sh user1
+          sh ./hack/fixtures/gen_ssh_test_env.sh user2
+          echo "BUILDKIT_TEST_SIGN_FIXTURES=$BUILDKIT_TEST_SIGN_FIXTURES" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            docker create --name seal-reg registry:3
+            sudo docker cp seal-reg:/bin/registry /usr/local/bin/registry
+            docker rm seal-reg
+          else
+            brew install distribution || true
+          fi
+      # Full suite as root on linux/macos (mount/overlayfs/containerd tests need
+      # it). Windows runs unprivileged and skips only TestCacheMountLockedRefs —
+      # documented platform incompatibility (cache-mount unlock semantics).
+      - name: Test
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            go test -short -skip '^TestCacheMountLockedRefs$' ./...
+          else
+            sudo -E env "PATH=$PATH" go test -short ./...
+          fi

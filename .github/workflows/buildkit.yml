@@ -34,6 +34,7 @@ env:
 
 jobs:
   prepare:
+    if: false
     runs-on: ubuntu-24.04
     outputs:
       binaries-platforms: ${{ steps.platforms.outputs.matrix }}
@@ -50,6 +51,7 @@ jobs:
           fields: platforms
 
   binaries:
+    if: false
     uses: docker/github-builder-experimental/.github/workflows/bake.yml@7643588149117bf0ca3a906caa3968c70484027a
     permissions:
       contents: read # same as global permission
@@ -67,6 +69,7 @@ jobs:
       sign: ${{ github.event_name != 'pull_request' }}
 
   binaries-finalize:
+    if: false
     runs-on: ubuntu-24.04
     needs:
       - binaries
@@ -109,6 +112,7 @@ jobs:
           if-no-files-found: error
 
   test:
+    if: false
     uses: ./.github/workflows/.test.yml
     secrets: inherit
     needs:
@@ -139,6 +143,7 @@ jobs:
           typ: integration
 
   govulncheck:
+    if: false
     runs-on: ubuntu-24.04
     permissions:
       # same as global permission
@@ -168,6 +173,7 @@ jobs:
           sarif_file: ${{ env.DESTDIR }}/govulncheck.out
 
   image-prepare:
+    if: false
     runs-on: ubuntu-24.04
     outputs:
       includes: ${{ steps.set.outputs.includes }}
@@ -224,6 +230,7 @@ jobs:
             core.setOutput('includes', JSON.stringify(matrix));
 
   image:
+    if: false
     uses: docker/github-builder-experimental/.github/workflows/bake.yml@7643588149117bf0ca3a906caa3968c70484027a
     needs:
       - image-prepare
@@ -291,7 +298,7 @@ jobs:
 
   scout:
     runs-on: ubuntu-24.04
-    if: ${{ github.ref == 'refs/heads/master' && github.repository == 'moby/buildkit' }}
+    if: false
     permissions:
       # same as global permission
       contents: read
@@ -334,6 +341,7 @@ jobs:
           sarif_file: ${{ steps.scout.outputs.result-file }}
 
   release:
+    if: false
     runs-on: ubuntu-24.04
     permissions:
       # required to create GitHub release
